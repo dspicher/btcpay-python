@@ -6,8 +6,8 @@ setup(
     packages=find_packages(),
     version="1.3.0",
     description="Accept bitcoin with BTCPay",
-    url="https://github.com/btcpayserver/btcpay-python",
-    download_url="https://github.com/btcpayserver/btcpay-python/archive/v1.3.0.tar.gz",
+    url="https://github.com/dspicher/btcpay-python",
+    download_url="https://github.com/dspicher/btcpay-python/archive/v1.3.0.1.tar.gz",
     license='MIT',
     keywords=["bitcoin", "payments", "crypto"],
     install_requires=[

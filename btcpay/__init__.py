@@ -1,2 +1,2 @@
-from . import crypto, client
+from . import client
 from .client import BTCPayClient
