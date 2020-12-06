@@ -14,44 +14,34 @@ from . import crypto
 
 
 class BTCPayClient:
-    def __init__(self, host, pem, insecure=False, tokens=None):
+    def __init__(self, host, token, insecure=False):
         self.host = host
-        self.verify = not(insecure)
-        self.pem = pem
-        self.tokens = tokens or dict()
-        self.client_id = crypto.get_sin_from_pem(pem)
+        self.token = token
         self.user_agent = 'btcpay-python'
         self.s = requests.Session()
-        self.s.verify = self.verify
         self.s.headers.update(
             {'Content-Type': 'application/json',
             'accept': 'application/json',
             'X-accept-version': '2.0.0'})
 
-    def _create_signed_headers(self, uri, payload):
+    def _create_signed_headers(self):
         return {
-            "X-Identity": crypto.get_compressed_public_key_from_pem(self.pem),
-            "X-Signature": crypto.sign(uri + payload, self.pem)
+            "Authentication": "Basic {self.token}",
         }
 
-    def _signed_get_request(self, path, params=None, token=None):
-        token = token or list(self.tokens.values())[0]
-        params = params or dict()
-        params['token'] = token
-
+    def _signed_get_request(self, path, params=None):
         uri = self.host + path
         payload = '?' + urlencode(params)
-        headers = self._create_signed_headers(uri, payload)
+        headers = self._create_signed_headers()
         r = self.s.get(uri, params=params, headers=headers)
         r.raise_for_status()
         return r.json()['data']
 
-    def _signed_post_request(self, path, payload, token=None):
+    def _signed_post_request(self, path, payload):
         token = token or list(self.tokens.values())[0]
         uri = self.host + path
-        payload['token'] = token
         payload = json.dumps(payload)
-        headers = self._create_signed_headers(uri, payload)
+        headers = self._create_signed_headers()
         r = self.s.post(uri, headers=headers, data=payload)
         if not r.ok:
             if 400 <= r.status_code < 500:
@@ -124,41 +114,6 @@ class BTCPayClient:
         if offset is not None:
             params['offset'] = offset
         return self._signed_get_request('/invoices', params=params, token=token)
-
-    def pair_client(self, code):
-        if re.match(r'^\w{7,7}$', code) is None:
-          raise ValueError("pairing code is not legal")
-        payload = {'id': self.client_id, 'pairingCode': code}
-        data = self._unsigned_request('/tokens', payload)
-        data = data[0]
-        return {
-            data['facade']: data['token']
-        }
-
-    @classmethod
-    def create_client(cls, code, host):
-        pem = crypto.generate_privkey()
-        client = BTCPayClient(host=host, pem=pem)
-        token = client.pair_client(code)
-        return BTCPayClient(host=host, pem=pem, tokens=token)
-
-    @classmethod
-    def create_tor_client(cls, code, host, proxy='socks5://127.0.0.1:9050'):
-        """ Useful for .onion services, the `proxy` input assumes the default
-        proxy header
-        """
-        pem = crypto.generate_privkey()
-        client = BTCPayClient(host=host, pem=pem)
-        client.s.proxies = {
-            'http': proxy,
-            'https': proxy}
-        token = client.pair_client(code)
-        final_client = BTCPayClient(host=host, pem=pem, tokens=token)
-        final_client.s.proxies = {
-            'http': proxy,
-            'https': proxy}
-        return final_client
-
 
     def __repr__(self):
         return '{}({})'.format(
